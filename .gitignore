@@ -1,0 +1,14 @@
+# ไฟล์ที่ build ออกมา
+dist/
+*.nvda-addon
+
+# Python
+__pycache__/
+*.py[cod]
+
+# ระบบปฏิบัติการและโปรแกรมแก้ไข
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
