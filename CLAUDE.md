@@ -11,7 +11,7 @@ addon/                       # ทุกอย่างในนี้จะถ�
   manifest.ini               # name, version, minimumNVDAVersion (2023.2), lastTestedNVDAVersion
   globalPlugins/webRotor/
     __init__.py              # GlobalPlugin: ปุ่มลัด, เมนู Preferences, เปิดหน้าต่าง
-    rotorDialog.py           # หน้าต่างโรเตอร์ (ช่องกรอง, รายการ, เปลี่ยนหมวด, Alt+ตัวอักษร)
+    rotorDialog.py           # หน้าต่างโรเตอร์ (แท็บต่อหมวด, รายการ, พิมพ์กระโดด, Alt+ตัวอักษรไทย/อังกฤษ)
     settingsDialog.py        # หน้าตั้งค่า (ภาษา, เลือก/จัดลำดับหมวด, ตัวเลือกต่างๆ)
     categories.py            # MASTER_ORDER 23 หมวด, DEFAULT_ENABLED, config section "webRotor"
     strings.py               # ข้อความ 2 ภาษา (en/th) ผ่าน tr(key); ค่าเริ่มต้นภาษาอังกฤษ

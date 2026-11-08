@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 # Web Rotor add-on for NVDA
-# หน้าต่างเมนูหมุน (Rotor) สำหรับสำรวจองค์ประกอบของหน้าเว็บ พร้อมช่องกรองรายการ
+# หน้าต่างเมนูหมุน (Rotor) สำหรับสำรวจองค์ประกอบของหน้าเว็บ
+# แต่ละหมวดหมู่เป็นแท็บหนึ่งแท็บ (wx.Notebook) และในแต่ละแท็บมีรายการ (ListBox) ของหมวดนั้น
+
+import time
 
 import wx
 import ui
+import tones
 import inputCore
 from logHandler import log
 
@@ -12,20 +16,37 @@ from . import strings
 
 MAX_LABEL_LENGTH = 100  # ตัดข้อความป้ายชื่อที่ยาวเกินไปในลิสต์
 MAX_ITEMS_PER_CATEGORY = 2000  # เพดานจำนวนรายการต่อหมวดหมู่ กันไม่ให้หน้าเว็บที่ใหญ่มากทำให้ค้าง
+TYPE_AHEAD_TIMEOUT = 1.0  # วินาที: พิมพ์ต่อกันภายในเวลานี้จะค้นหาเป็นคำ (เช่น "ติ" -> "ติดต่อเรา")
+MAPVK_VK_TO_CHAR = 2
+
+
+def _layoutCharForKey(vkCode):
+	"""คืนตัวอักษรของปุ่มที่กดตามแป้นพิมพ์ที่ใช้อยู่ขณะนี้ (เช่น ปุ่ม S บนแป้นไทย = "ห")
+	ใช้เป็นทางสำรองในกรณีที่ wx ไม่ได้ส่งค่า Unicode ของปุ่มมาให้ขณะกด Alt
+	คืน None ถ้าหาไม่ได้ (เช่น ไม่ได้รันบน Windows)
+	"""
+	try:
+		import ctypes
+		user32 = ctypes.windll.user32
+		layout = user32.GetKeyboardLayout(0)
+		value = user32.MapVirtualKeyExW(vkCode, MAPVK_VK_TO_CHAR, layout) & 0xFFFF
+		if value:
+			return chr(value)
+	except Exception:
+		pass
+	return None
 
 
 class RotorDialog(wx.Dialog):
 	"""กล่องโต้ตอบเว็บโรเตอร์
-	Ctrl+ลูกศรซ้าย/ขวา: เปลี่ยนหมวดหมู่ (ใช้งานได้ทั้งตอนโฟกัสอยู่ที่ช่องกรองและที่รายการ)
-	ลูกศรซ้าย/ขวา (เมื่อโฟกัสอยู่ที่รายการ): เปลี่ยนหมวดหมู่เช่นกัน เพื่อความสะดวก
+	เปิดขึ้นมาโฟกัสจะอยู่ที่รายการของหมวดหมู่แรกทันที
+	พิมพ์ตัวอักษร (ในรายการ): กระโดดไปยังรายการถัดไปที่ขึ้นต้นด้วยตัวอักษรนั้น (กดซ้ำเพื่อวนต่อ)
+	ลูกศรซ้าย/ขวา (ในรายการ): เปลี่ยนหมวดหมู่ วนไปตามลำดับที่ตั้งค่าไว้
+	Shift+Tab (จากรายการ): ไปยังแท็บหมวดหมู่ ใช้ลูกศรซ้าย/ขวาเลือกแท็บ แล้ว Tab กลับเข้ารายการ
+	Alt+ตัวอักษร: กระโดดไปยังหมวดหมู่นั้นทันที รองรับทั้งแป้นอังกฤษและแป้นไทยเสมอ
 	ลูกศรขึ้น/ลง: เลื่อนดูรายการภายในหมวดหมู่ปัจจุบัน
-	พิมพ์ตัวอักษรในช่องกรอง: กรองรายการของหมวดหมู่ปัจจุบันแบบเรียลไทม์
-	ลูกศรลง (จากช่องกรอง): ย้ายโฟกัสไปยังรายการแรกที่กรองได้
 	Enter/Space: กระโดดไปยังตำแหน่งที่เลือกในเอกสาร แล้วปิดกล่องโต้ตอบ
 	Escape: ปิดกล่องโต้ตอบโดยไม่ทำอะไร
-
-	ขณะที่กล่องโต้ตอบนี้เปิดอยู่ ปุ่มลัด/คำสั่งอื่นๆ ของ NVDA (นอกเหนือจากการนำทางภายในโรเตอร์เอง)
-	จะถูกปิดใช้งานชั่วคราว เพื่อป้องกันการกดพลาดไปโดนคำสั่งอื่นระหว่างใช้งาน
 	"""
 
 	def __init__(self, parent, treeInterceptor, onClosedCallback=None):
@@ -40,18 +61,23 @@ class RotorDialog(wx.Dialog):
 		# โหลดรายการหมวดหมู่ที่ผู้ใช้เปิดใช้งานไว้ (เรียงตามลำดับที่ตั้งค่า) ทุกครั้งที่เปิดโรเตอร์
 		self.categories = [(cat.getLabel(itemType), itemType) for itemType in cat.getEnabledCategories()]
 		self.categoryIndex = 0
-		self._itemsCache = {}  # itemType -> รายการ QuickNavItem ทั้งหมดที่ดึงมาแล้ว (ยังไม่กรอง)
-		self._currentItems = []  # รายการหลังกรองของหมวดหมู่ปัจจุบัน ตรงกับแถวใน listBox
+		self._itemsCache = {}  # itemType -> รายการ QuickNavItem ทั้งหมดที่ดึงมาแล้ว
+		self._pages = []  # ข้อมูลของแต่ละแท็บ ตามลำดับเดียวกับ self.categories
 		self._gestureBlockActive = False
+		self._typeAheadBuffer = ""
+		self._typeAheadTime = 0.0
 
 		# ตารางคีย์ลัด Alt+ตัวอักษร -> ลำดับหมวดหมู่ (เฉพาะหมวดที่เปิดใช้งานอยู่จริงในโรเตอร์นี้)
-		# ตัวอักษรจะเปลี่ยนไปตามภาษาที่ตั้งค่าไว้โดยอัตโนมัติ (strings.CATEGORY_SHORTCUTS)
-		shortcutTable = strings.CATEGORY_SHORTCUTS.get(strings.getLang(), strings.CATEGORY_SHORTCUTS[strings.DEFAULT_LANG])
-		self._categoryShortcutMap = {}
+		# ใช้ได้ทั้งตัวอักษรอังกฤษและไทยเสมอ ไม่ขึ้นกับภาษาที่ตั้งค่าไว้ และไม่ขึ้นกับแป้นพิมพ์ที่ใช้อยู่
+		self._englishShortcutMap = {}
+		self._thaiShortcutMap = {}
 		for idx, (_label, itemType) in enumerate(self.categories):
-			letter = shortcutTable.get(itemType)
+			letter = strings.CATEGORY_SHORTCUTS["en"].get(itemType)
 			if letter:
-				self._categoryShortcutMap[letter.upper()] = idx
+				self._englishShortcutMap[letter.upper()] = idx
+			letter = strings.CATEGORY_SHORTCUTS["th"].get(itemType)
+			if letter:
+				self._thaiShortcutMap[letter] = idx
 
 		self._buildUI()
 		self.Bind(wx.EVT_CLOSE, self._onClose)
@@ -69,29 +95,40 @@ class RotorDialog(wx.Dialog):
 			wx.CallAfter(self.Close)
 			return
 
-		self._loadCategory(self.categoryIndex, announce=False)
-		self.filterCtrl.SetFocus()
+		self._ensurePageLoaded(self.categoryIndex)
+		# ย้ายโฟกัสเข้ารายการหลังจากหน้าต่างแสดงขึ้นแล้ว (Show() อาจย้ายโฟกัสไปที่แท็บก่อน)
+		wx.CallAfter(self._focusCurrentList)
 
 	def _buildUI(self):
 		mainSizer = wx.BoxSizer(wx.VERTICAL)
 
-		filterSizer = wx.BoxSizer(wx.HORIZONTAL)
-		filterLabelText = wx.StaticText(self, label=strings.tr("filterLabel"))
-		filterSizer.Add(filterLabelText, 0, wx.ALIGN_CENTER_VERTICAL | wx.RIGHT, 6)
-		self.filterCtrl = wx.TextCtrl(self)
-		filterSizer.Add(self.filterCtrl, 1, wx.EXPAND)
-		mainSizer.Add(filterSizer, 0, wx.ALL | wx.EXPAND, 8)
+		self.notebook = wx.Notebook(self)
+		for label, _itemType in self.categories:
+			panel = wx.Panel(self.notebook)
+			pageSizer = wx.BoxSizer(wx.VERTICAL)
+			# ข้อความนี้อยู่ก่อนรายการ NVDA จึงอ่านเป็นชื่อของรายการ (เช่น "หัวเรื่อง — 12 รายการ")
+			header = wx.StaticText(panel, label=label)
+			pageSizer.Add(header, 0, wx.ALL | wx.EXPAND, 6)
+			listBox = wx.ListBox(panel, style=wx.LB_SINGLE)
+			listBox.SetMinSize((480, 320))
+			pageSizer.Add(listBox, 1, wx.LEFT | wx.RIGHT | wx.BOTTOM | wx.EXPAND, 6)
+			panel.SetSizer(pageSizer)
+			self.notebook.AddPage(panel, label)
 
-		self.categoryLabel = wx.StaticText(self, label="")
-		mainSizer.Add(self.categoryLabel, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 8)
-
-		self.listBox = wx.ListBox(self, style=wx.LB_SINGLE)
-		self.listBox.SetMinSize((480, 320))
-		mainSizer.Add(self.listBox, 1, wx.ALL | wx.EXPAND, 8)
+			listBox.Bind(wx.EVT_KEY_DOWN, self._onListKeyDown)
+			listBox.Bind(wx.EVT_CHAR, self._onListChar)
+			listBox.Bind(wx.EVT_LISTBOX_DCLICK, self._onActivate)
+			self._pages.append({
+				"header": header,
+				"listBox": listBox,
+				"items": [],
+				"labels": [],
+				"loaded": False,
+			})
+		mainSizer.Add(self.notebook, 1, wx.ALL | wx.EXPAND, 8)
 
 		hint = wx.StaticText(self, label=(
 			strings.tr("rotorHint")
-			+ strings.tr("rotorHintShortcut")
 			+ (strings.tr("rotorHintBlockNotice") if cat.getBlockOtherGestures() else "")
 		))
 		mainSizer.Add(hint, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 8)
@@ -99,38 +136,53 @@ class RotorDialog(wx.Dialog):
 		self.SetSizerAndFit(mainSizer)
 		self.CentreOnScreen()
 
-		self.filterCtrl.Bind(wx.EVT_TEXT, self._onFilterText)
-		self.filterCtrl.Bind(wx.EVT_KEY_DOWN, self._onFilterKeyDown)
-		self.listBox.Bind(wx.EVT_KEY_DOWN, self._onListKeyDown)
-		self.listBox.Bind(wx.EVT_LISTBOX_DCLICK, self._onActivate)
+		self.notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self._onPageChanged)
 		self.Bind(wx.EVT_CHAR_HOOK, self._onCharHook)
 
 	def _onCharHook(self, evt):
-		# ใช้ CHAR_HOOK เพื่อดักคีย์สำคัญได้แน่นอนไม่ว่าโฟกัสจะอยู่ที่คอนโทรลใด (ช่องกรองหรือรายการ)
+		# ใช้ CHAR_HOOK เพื่อดักคีย์สำคัญได้แน่นอนไม่ว่าโฟกัสจะอยู่ที่แท็บหรือรายการ
 		code = evt.GetKeyCode()
 
 		if code == wx.WXK_ESCAPE:
 			self.Close()
 			return
 
-		# Enter/ปุ่ม Numpad Enter: กระโดดไปยังตำแหน่งที่เลือกอยู่ในขณะนี้เสมอ ไม่ว่าโฟกัสจะอยู่ตรงไหน
-		# (นอกเหนือจากที่แต่ละคอนโทรลจัดการเองอยู่แล้ว จุดนี้เป็นการรับประกันอีกชั้นให้ Enter ทำงาน
-		# เหมือน Space ได้แน่นอนในทุกกรณี)
+		# Enter: กระโดดไปยังรายการที่เลือกอยู่ในหมวดปัจจุบันเสมอ ไม่ว่าโฟกัสจะอยู่ที่แท็บหรือรายการ
 		if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and not evt.AltDown():
 			self._onActivate(evt)
 			return
 
-		# Alt+ตัวอักษร: กระโดดตรงไปยังหมวดหมู่ที่ตรงกับตัวอักษรนั้นทันที (ตัวอักษรเปลี่ยนตามภาษาที่ตั้งค่าไว้)
-		if evt.AltDown() and not evt.ControlDown() and self._categoryShortcutMap:
-			uni = evt.GetUnicodeKey()
-			if uni and uni != wx.WXK_NONE:
-				letter = chr(uni).upper()
-				idx = self._categoryShortcutMap.get(letter)
-				if idx is not None:
-					self._switchToCategoryIndex(idx)
-					return
+		if evt.AltDown() and not evt.ControlDown():
+			idx = self._categoryIndexFromAltKey(evt)
+			if idx is not None:
+				self._switchToCategoryIndex(idx)
+				return
 
 		evt.Skip()
+
+	def _categoryIndexFromAltKey(self, evt):
+		"""หาว่า Alt+ปุ่มที่กดตรงกับหมวดหมู่ใด
+		1) ถ้าปุ่มนั้นให้ตัวอักษรไทยที่อยู่ในตารางคีย์ลัดไทย (แป้นพิมพ์เป็นภาษาไทย) ใช้หมวดตามตารางไทย
+		2) ไม่เช่นนั้นใช้ตัวอักษรอังกฤษบนปุ่มนั้น (รหัสปุ่ม A-Z ไม่ขึ้นกับแป้นพิมพ์ที่ใช้อยู่)
+		"""
+		candidates = []
+		uni = evt.GetUnicodeKey()
+		if uni and uni != wx.WXK_NONE:
+			candidates.append(chr(uni))
+		layoutChar = _layoutCharForKey(evt.GetRawKeyCode())
+		if layoutChar:
+			candidates.append(layoutChar)
+		for ch in candidates:
+			idx = self._thaiShortcutMap.get(ch)
+			if idx is not None:
+				return idx
+
+		code = evt.GetKeyCode()
+		if ord("A") <= code <= ord("Z"):
+			return self._englishShortcutMap.get(chr(code))
+		if ord("a") <= code <= ord("z"):
+			return self._englishShortcutMap.get(chr(code).upper())
+		return None
 
 	def _onClose(self, evt):
 		# ป้องกันการทำงานซ้ำถ้า EVT_CLOSE ถูกยิงมากกว่าหนึ่งครั้งด้วยเหตุผลใดก็ตาม
@@ -160,7 +212,7 @@ class RotorDialog(wx.Dialog):
 	def _blockOtherGestures(self):
 		"""บล็อกไม่ให้ปุ่มลัด/คำสั่งอื่นๆ ของ NVDA (นอกเหนือจากของเว็บโรเตอร์เอง) ทำงาน
 		ขณะที่กล่องโต้ตอบนี้เปิดอยู่ เพื่อป้องกันการกดพลาดไปโดนคำสั่งอื่นระหว่างใช้งานโรเตอร์
-		การนำทางภายในโรเตอร์เอง (ลูกศร, Enter, Esc, การพิมพ์กรอง) ใช้กลไกของ wx โดยตรง
+		การนำทางภายในโรเตอร์เอง (ลูกศร, Enter, Esc, การพิมพ์ค้นหา) ใช้กลไกของ wx โดยตรง
 		ไม่ผ่านระบบ gesture ของ NVDA จึงไม่ได้รับผลกระทบจากการบล็อกนี้
 
 		ฟีเจอร์นี้เป็นทางเลือก (ปิดเป็นค่าเริ่มต้น) เนื่องจากอาจชนกับส่วนเสริมอื่นบางตัว
@@ -193,41 +245,75 @@ class RotorDialog(wx.Dialog):
 		# ขณะที่กล่องโต้ตอบเว็บโรเตอร์นี้เปิดอยู่
 		return False
 
-	def _onFilterKeyDown(self, evt):
-		code = evt.GetKeyCode()
-		if code == wx.WXK_DOWN:
-			# ย้ายโฟกัสไปยังรายการแรกในลิสต์ที่กรองได้ (ถ้ามี)
-			if self.listBox.GetCount() > 0:
-				self.listBox.SetFocus()
-				if self.listBox.GetSelection() == wx.NOT_FOUND:
-					self.listBox.SetSelection(0)
-			return
-		if code == wx.WXK_LEFT and evt.ControlDown():
-			self._switchCategory(-1)
-			return
-		if code == wx.WXK_RIGHT and evt.ControlDown():
-			self._switchCategory(1)
-			return
-		if code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER):
-			# Enter จากช่องกรอง = ไปยังรายการแรกที่กรองได้ทันที
-			self._onActivate(evt)
-			return
-		evt.Skip()
-
 	def _onListKeyDown(self, evt):
 		code = evt.GetKeyCode()
-		if code == wx.WXK_LEFT:
+		if evt.AltDown():
+			evt.Skip()
+		elif code == wx.WXK_LEFT:
 			self._switchCategory(-1)
 		elif code == wx.WXK_RIGHT:
 			self._switchCategory(1)
 		elif code in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER, wx.WXK_SPACE):
 			self._onActivate(evt)
 		else:
-			# ปล่อยให้ ListBox จัดการปุ่มขึ้น/ลง/Home/End ตามปกติ
+			# ปล่อยให้ ListBox จัดการปุ่มขึ้น/ลง/Home/End/Page Up/Page Down และ Tab/Shift+Tab ตามปกติ
 			evt.Skip()
 
-	def _onFilterText(self, evt):
-		self._applyFilter()
+	def _onListChar(self, evt):
+		"""พิมพ์ตัวอักษรในรายการ: กระโดดไปยังรายการที่ขึ้นต้นด้วยตัวอักษรนั้น
+		รองรับทั้งตัวอักษรไทยและอังกฤษ ตามแป้นพิมพ์ที่ใช้อยู่ขณะนั้น
+		"""
+		if evt.AltDown() or evt.ControlDown():
+			evt.Skip()
+			return
+		uni = evt.GetUnicodeKey()
+		if not uni or uni == wx.WXK_NONE or uni < 32 or chr(uni).isspace():
+			evt.Skip()
+			return
+		self._typeAhead(chr(uni))
+
+	def _typeAhead(self, ch):
+		page = self._pages[self.categoryIndex]
+		labels = page["labels"]
+		listBox = page["listBox"]
+		if not labels:
+			tones.beep(220, 40)
+			return
+
+		now = time.monotonic()
+		if now - self._typeAheadTime > TYPE_AHEAD_TIMEOUT:
+			self._typeAheadBuffer = ""
+		self._typeAheadTime = now
+		self._typeAheadBuffer += ch.casefold()
+		buf = self._typeAheadBuffer
+
+		current = listBox.GetSelection()
+		if current == wx.NOT_FOUND:
+			current = -1
+		count = len(labels)
+		if len(set(buf)) == 1:
+			# กดตัวอักษรเดิมซ้ำ: วนไปยังรายการถัดไปที่ขึ้นต้นด้วยตัวอักษรนั้น
+			prefix = buf[0]
+			start = current + 1
+		else:
+			# พิมพ์หลายตัวต่อกัน: หาคำที่ขึ้นต้นตรงกัน เริ่มจากรายการปัจจุบัน
+			prefix = buf
+			start = max(current, 0)
+		for offset in range(count):
+			idx = (start + offset) % count
+			if labels[idx].lstrip().casefold().startswith(prefix):
+				listBox.SetSelection(idx)
+				return
+		tones.beep(220, 40)
+
+	def _onPageChanged(self, evt):
+		# ผู้ใช้เลือกแท็บด้วยลูกศรซ้าย/ขวา หรือ Ctrl+Tab ขณะโฟกัสอยู่ที่แท็บ
+		index = evt.GetSelection()
+		if 0 <= index < len(self.categories):
+			self.categoryIndex = index
+			self._ensurePageLoaded(index)
+			log.info("WebRotor: เลือกแท็บหมวดหมู่ '%s'" % self.categories[index][1])
+		evt.Skip()
 
 	def _switchCategory(self, step):
 		if not self.categories:
@@ -236,14 +322,29 @@ class RotorDialog(wx.Dialog):
 		self._switchToCategoryIndex(newIndex)
 
 	def _switchToCategoryIndex(self, index):
+		"""เปลี่ยนไปยังหมวดหมู่ที่ระบุ แล้วย้ายโฟกัสไปที่รายการของหมวดนั้น
+		NVDA จะอ่านชื่อหมวดหมู่พร้อมจำนวนรายการ (จากหัวข้อเหนือรายการ) และรายการที่เลือกอยู่
+		"""
 		if not self.categories:
 			return
-		if index == self.categoryIndex:
-			# อยู่ที่หมวดนี้แล้ว (เช่น กดคีย์ลัดซ้ำของหมวดเดิม) ไม่ต้องทำอะไรซ้ำ
+		listBox = self._pages[index]["listBox"]
+		if index == self.categoryIndex and self.FindFocus() is listBox:
+			# อยู่ที่หมวดนี้แล้ว (เช่น กดคีย์ลัดซ้ำของหมวดเดิม) แค่บอกซ้ำว่าอยู่หมวดไหน
+			ui.message(self._pages[index]["header"].GetLabel())
 			return
 		self.categoryIndex = index
-		log.info("WebRotor: สลับไปหมวดหมู่ '%s'" % self.categories[self.categoryIndex][1])
-		self._loadCategory(self.categoryIndex, announce=True)
+		self._typeAheadBuffer = ""
+		self._ensurePageLoaded(index)
+		if self.notebook.GetSelection() != index:
+			# ChangeSelection ไม่ยิง EVT_NOTEBOOK_PAGE_CHANGED จึงไม่เกิดการทำงานซ้ำ
+			self.notebook.ChangeSelection(index)
+		log.info("WebRotor: สลับไปหมวดหมู่ '%s'" % self.categories[index][1])
+		listBox.SetFocus()
+
+	def _focusCurrentList(self):
+		if self._closeHandled or not self._pages:
+			return
+		self._pages[self.categoryIndex]["listBox"].SetFocus()
 
 	def _ensureItemsLoaded(self, itemType):
 		items = self._itemsCache.get(itemType)
@@ -274,73 +375,47 @@ class RotorDialog(wx.Dialog):
 			self._itemsCache[itemType] = items
 		return items
 
-	def _loadCategory(self, index, announce=True):
-		label, itemType = self.categories[index]
-		allItems = self._ensureItemsLoaded(itemType)
-		self._applyFilter()
-
-		if announce:
-			query = self.filterCtrl.GetValue().strip()
-			total = len(allItems)
-			shown = len(self._currentItems)
-			if query:
-				if shown:
-					ui.message(strings.tr("announceFiltered", category=label, shown=shown, total=total))
-				else:
-					ui.message(strings.tr("announceFilteredNone", category=label))
-			else:
-				if total:
-					ui.message(strings.tr("announcePlain", category=label, total=total))
-				else:
-					ui.message(strings.tr("announceEmpty", category=label))
-
-	def _applyFilter(self):
-		"""กรองรายการของหมวดหมู่ปัจจุบันตามข้อความในช่องกรอง แล้วรีเฟรช listBox"""
-		if not self.categories:
+	def _ensurePageLoaded(self, index):
+		"""ดึงรายการของหมวดหมู่นี้ (ครั้งแรกที่เปิดแท็บนี้เท่านั้น) แล้วใส่ลงในรายการของแท็บ"""
+		page = self._pages[index]
+		if page["loaded"]:
 			return
-		_label, itemType = self.categories[self.categoryIndex]
-		allItems = self._itemsCache.get(itemType, [])
-		query = self.filterCtrl.GetValue().strip().lower()
+		label, itemType = self.categories[index]
+		items = self._ensureItemsLoaded(itemType)
 
-		if query:
-			filtered = [it for it in allItems if query in (it.label or "").lower()]
+		labels = []
+		for it in items:
+			text = (it.label or "").strip()
+			if not text:
+				text = strings.tr("noLabel")
+			if len(text) > MAX_LABEL_LENGTH:
+				text = text[:MAX_LABEL_LENGTH] + "…"
+			labels.append(text)
+
+		listBox = page["listBox"]
+		listBox.Freeze()
+		listBox.Clear()
+		if labels:
+			listBox.InsertItems(labels, 0)
+			listBox.SetSelection(0)
+		listBox.Thaw()
+
+		if labels:
+			page["header"].SetLabel(strings.tr("categoryLabelPlain", category=label, total=len(labels)))
 		else:
-			filtered = allItems
-
-		self._currentItems = filtered
-		self._refreshListBox()
-
-		label = cat.getLabel(itemType)
-		if query:
-			self.categoryLabel.SetLabel(
-				strings.tr("categoryLabelFiltered", category=label, shown=len(filtered), total=len(allItems))
-			)
-		else:
-			self.categoryLabel.SetLabel(
-				strings.tr("categoryLabelPlain", category=label, total=len(allItems))
-			)
-
-	def _refreshListBox(self):
-		self.listBox.Freeze()
-		self.listBox.Clear()
-		if self._currentItems:
-			labels = []
-			for it in self._currentItems:
-				text = (it.label or "").strip()
-				if not text:
-					text = strings.tr("noLabel")
-				if len(text) > MAX_LABEL_LENGTH:
-					text = text[:MAX_LABEL_LENGTH] + "\u2026"
-				labels.append(text)
-			self.listBox.InsertItems(labels, 0)
-			self.listBox.SetSelection(0)
-		self.listBox.Thaw()
+			page["header"].SetLabel(strings.tr("categoryLabelEmpty", category=label))
+		page["items"] = items
+		page["labels"] = labels
+		page["loaded"] = True
 
 	def _onActivate(self, evt):
-		sel = self.listBox.GetSelection()
-		if sel == wx.NOT_FOUND or sel >= len(self._currentItems):
+		if not self._pages:
 			return
-		item = self._currentItems[sel]
+		page = self._pages[self.categoryIndex]
+		sel = page["listBox"].GetSelection()
+		if sel == wx.NOT_FOUND or sel >= len(page["items"]):
+			return
+		item = page["items"][sel]
 		log.info("WebRotor: เลือกรายการลำดับที่ %d ในหมวดปัจจุบัน กำลังปิดหน้าต่างและย้ายตำแหน่ง" % sel)
 		self.Close()
 		# หน่วงเวลาเล็กน้อยเพื่อให้กล่องโต้ตอบปิดและคืนโฟกัสให้เอกสารก่อน

@@ -102,7 +102,8 @@ CATEGORY_LABELS = {
 }
 
 # ตัวอักษรคีย์ลัด (กด Alt+ตัวอักษรนี้ในหน้าต่างเว็บโรเตอร์เพื่อกระโดดตรงไปหมวดหมู่นั้นทันที)
-# ไม่ซ้ำกันเองภายในแต่ละภาษา และเว้นตัวอักษรที่ช่องกรองรายการใช้ไปแล้ว (F / ก) ไว้ไม่ให้ชนกัน
+# ทั้งสองชุดใช้ได้พร้อมกันเสมอ ไม่ขึ้นกับภาษาที่ตั้งค่าไว้: แป้นอังกฤษใช้ชุด "en" แป้นไทยใช้ชุด "th"
+# ไม่ซ้ำกันเองภายในแต่ละชุด
 CATEGORY_SHORTCUTS = {
 	"en": {
 		"heading": "H", "link": "K", "visitedLink": "V", "unvisitedLink": "U",
@@ -137,22 +138,16 @@ UI_STRINGS = {
 
 		# --- Rotor dialog ---
 		"rotorTitle": "Web Rotor",
-		"filterLabel": "Filter list (&F):",
 		"rotorHint": (
-			"Ctrl+Left/Right arrow: change category (or just Left/Right when focus is on the list) \u00b7 "
-			"Type to filter the list \u00b7 Up/Down arrow: move through the list \u00b7 "
-			"Enter: go to this position \u00b7 Esc: close"
+			"Up/Down arrow: move through the list \u00b7 Type a letter: jump to an item starting with it \u00b7 "
+			"Left/Right arrow: change category \u00b7 Shift+Tab: category tabs \u00b7 "
+			"Alt+letter (English or Thai): jump to a category \u00b7 Enter: go to this position \u00b7 Esc: close"
 		),
 		"rotorHintBlockNotice": " \u00b7 (other NVDA commands are temporarily disabled while this window is open)",
-		"rotorHintShortcut": " \u00b7 Alt+letter: jump straight to a category",
 		"noCategoriesSelected": "No categories have been selected in Web Rotor settings.",
 		"noLabel": "(no label)",
 		"categoryLabelPlain": "{category} \u2014 {total} item(s)",
-		"categoryLabelFiltered": "{category} \u2014 {shown} of {total} item(s) found",
-		"announcePlain": "{category}, {total} item(s)",
-		"announceFiltered": "{category}, {shown} of {total} item(s) found",
-		"announceFilteredNone": "{category}, no items match the filter",
-		"announceEmpty": "{category}, no items found on this page",
+		"categoryLabelEmpty": "{category} \u2014 no items on this page",
 		"moveToFailed": "Could not go to this position. The page may have changed.",
 
 		# --- Settings dialog ---
@@ -188,22 +183,16 @@ UI_STRINGS = {
 		"docElementsListOrRotor": "เปิด Elements List มาตรฐานของ NVDA หรือเว็บโรเตอร์ ขึ้นอยู่กับการตั้งค่าเว็บโรเตอร์",
 
 		"rotorTitle": "เว็บโรเตอร์",
-		"filterLabel": "กรองรายการ (&ก):",
 		"rotorHint": (
-			"Ctrl+ลูกศรซ้าย/ขวา: เปลี่ยนหมวดหมู่ (หรือลูกศรซ้าย/ขวาเฉยๆ เมื่อโฟกัสอยู่ที่รายการ) \u00b7 "
-			"พิมพ์เพื่อกรองรายการ \u00b7 ลูกศรขึ้น/ลง: เลื่อนรายการ \u00b7 "
-			"Enter: ไปยังตำแหน่งนี้ \u00b7 Esc: ปิด"
+			"ลูกศรขึ้น/ลง: เลื่อนรายการ · พิมพ์ตัวอักษร: กระโดดไปรายการที่ขึ้นต้นด้วยตัวนั้น · "
+			"ลูกศรซ้าย/ขวา: เปลี่ยนหมวดหมู่ · Shift+Tab: แท็บหมวดหมู่ · "
+			"Alt+ตัวอักษร (อังกฤษหรือไทย): กระโดดไปหมวดหมู่ · Enter: ไปยังตำแหน่งนี้ · Esc: ปิด"
 		),
-		"rotorHintBlockNotice": " \u00b7 (ปุ่มลัดอื่นของ NVDA ถูกปิดชั่วคราวขณะหน้าต่างนี้เปิดอยู่)",
-		"rotorHintShortcut": " \u00b7 Alt+ตัวอักษร: กระโดดตรงไปยังหมวดหมู่นั้น",
+		"rotorHintBlockNotice": " · (ปุ่มลัดอื่นของ NVDA ถูกปิดชั่วคราวขณะหน้าต่างนี้เปิดอยู่)",
 		"noCategoriesSelected": "ยังไม่ได้เลือกหมวดหมู่ใดไว้ในการตั้งค่าเว็บโรเตอร์",
 		"noLabel": "(ไม่มีป้ายชื่อ)",
-		"categoryLabelPlain": "{category} \u2014 {total} รายการ",
-		"categoryLabelFiltered": "{category} \u2014 พบ {shown} จาก {total} รายการ",
-		"announcePlain": "{category}, {total} รายการ",
-		"announceFiltered": "{category}, พบ {shown} จาก {total} รายการ",
-		"announceFilteredNone": "{category}, ไม่พบรายการที่ตรงกับตัวกรอง",
-		"announceEmpty": "{category}, ไม่พบรายการในหน้านี้",
+		"categoryLabelPlain": "{category} — {total} รายการ",
+		"categoryLabelEmpty": "{category} — ไม่พบรายการในหน้านี้",
 		"moveToFailed": "ไม่สามารถไปยังตำแหน่งนี้ได้ อาจเป็นเพราะหน้าเว็บมีการเปลี่ยนแปลง",
 
 		"settingsTitle": "ตั้งค่าเว็บโรเตอร์",
