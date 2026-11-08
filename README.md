@@ -29,7 +29,7 @@ python build.py
 ## ออกเวอร์ชันใหม่และส่งขึ้น NVDA Add-on Store
 
 1. แก้ `version` และ `changelog` ใน `addon/manifest.ini` และ `addon/locale/th/manifest.ini` แล้ว merge เข้า `main`
-2. สร้าง tag ให้ตรงกับเวอร์ชัน เช่น `v1.8.0` GitHub Actions จะ build และสร้าง Release พร้อมไฟล์ `.nvda-addon` ให้อัตโนมัติ
+2. เมื่อ merge เข้า `main` แล้ว GitHub Actions จะ build และสร้าง Release (tag เช่น `v1.8.0`) พร้อมไฟล์ `.nvda-addon` ให้อัตโนมัติ ถ้าเวอร์ชันนั้นยังไม่เคยออก
 3. ส่งลิงก์ไฟล์ใน Release ผ่านฟอร์ม "Add-on registration" ที่ [nvaccess/addon-datastore](https://github.com/nvaccess/addon-datastore/issues/new/choose)
 
 ## English
