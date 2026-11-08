@@ -19,7 +19,7 @@ addon/                       # ทุกอย่างในนี้จะถ�
   doc/th/readme.md           # คู่มือผู้ใช้ภาษาไทย
   doc/en/readme.md           # คู่มือผู้ใช้ภาษาอังกฤษ (build แปลงเป็น readme.html ให้ปุ่ม Help ของ NVDA)
 build.py                     # python build.py → dist/webRotor-<version>.nvda-addon (ต้อง pip install markdown)
-.github/workflows/release.yml  # push tag vX.Y.Z → build และสร้าง GitHub Release อัตโนมัติ
+.github/workflows/release.yml  # merge เข้า main ที่มีเวอร์ชันใหม่ → build และสร้าง GitHub Release อัตโนมัติ
 ```
 
 ## ปุ่มลัด
@@ -46,7 +46,8 @@ build.py                     # python build.py → dist/webRotor-<version>.nvda-
    รวมถึงบรรทัดเวอร์ชันใน `addon/doc/th/readme.md` และ `addon/doc/en/readme.md`
 2. อัปเดต `lastTestedNVDAVersion` ถ้าทดสอบกับ NVDA รุ่นใหม่
 3. `python build.py` แล้วทดสอบติดตั้งบน Windows จริงก่อนแจก
-4. หลัง merge เข้า `main` push tag `vX.Y.Z` (ต้องตรงกับ version ใน manifest) เพื่อสร้าง Release
+4. merge เข้า `main` แล้ว workflow จะสร้าง tag `vX.Y.Z` และ Release ให้เอง ถ้าเวอร์ชันนั้นยังไม่มี Release
+   (session ของ Claude สร้าง tag/Release ตรงๆ ไม่ได้ จึงใช้วิธีนี้)
 5. ส่งขึ้น NVDA Add-on Store ผ่านฟอร์ม "Add-on registration" ที่ nvaccess/addon-datastore
    (Download URL = ลิงก์ไฟล์ .nvda-addon ใน Release, Source URL = ลิงก์ repo, License = GPL v2, Channel = stable)
 6. เปลี่ยนคำอธิบายหรือฟีเจอร์ ต้องแก้ทั้ง manifest อังกฤษและไทย และคู่มือทั้งสองภาษา

@@ -1,10 +1,17 @@
-# สร้างไฟล์ .nvda-addon และออก GitHub Release อัตโนมัติเมื่อ push tag เวอร์ชัน เช่น v1.8.0
+# สร้างไฟล์ .nvda-addon และออก GitHub Release อัตโนมัติ
+# ทำงานเมื่อ:
+#   - merge เข้า main แล้ว version ใน addon/manifest.ini ยังไม่มี Release (สร้าง tag vX.Y.Z ให้เอง)
+#   - push tag vX.Y.Z เอง
+#   - กด "Run workflow" ในแท็บ Actions
 name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,25 +22,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Check tag matches manifest version
+      - name: Read version from manifest
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           version=$(grep -E '^version *=' addon/manifest.ini | sed -E 's/^version *= *//')
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+          tag="v$version"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "$tag" ]; then
             echo "Tag $GITHUB_REF_NAME does not match manifest version $version"
             exit 1
           fi
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $tag already exists, nothing to do"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.version.outputs.skip == 'false'
+        with:
+          python-version: "3.11"
 
       - name: Build add-on
+        if: steps.version.outputs.skip == 'false'
         run: |
           pip install markdown
           python build.py
 
       - name: Create release
+        if: steps.version.outputs.skip == 'false'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Web Rotor ${{ steps.version.outputs.tag }}
           files: dist/*.nvda-addon
           generate_release_notes: true
