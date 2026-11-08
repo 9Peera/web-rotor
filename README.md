@@ -25,3 +25,14 @@ python build.py
 ```
 
 ได้ไฟล์ `dist/webRotor-<เวอร์ชัน>.nvda-addon` จากนั้นเปิดไฟล์นี้ใน Windows เพื่อติดตั้งใน NVDA
+
+## ออกเวอร์ชันใหม่และส่งขึ้น NVDA Add-on Store
+
+1. แก้ `version` และ `changelog` ใน `addon/manifest.ini` และ `addon/locale/th/manifest.ini` แล้ว merge เข้า `main`
+2. สร้าง tag ให้ตรงกับเวอร์ชัน เช่น `v1.8.0` GitHub Actions จะ build และสร้าง Release พร้อมไฟล์ `.nvda-addon` ให้อัตโนมัติ
+3. ส่งลิงก์ไฟล์ใน Release ผ่านฟอร์ม "Add-on registration" ที่ [nvaccess/addon-datastore](https://github.com/nvaccess/addon-datastore/issues/new/choose)
+
+## English
+
+Web Rotor adds a VoiceOver-style rotor to NVDA for exploring web page elements by category.
+See the [English user guide](addon/doc/en/readme.md). Licensed under the GNU GPL v2 ([LICENSE.md](LICENSE.md)).

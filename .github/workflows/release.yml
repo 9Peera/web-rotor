@@ -1,0 +1,39 @@
+# สร้างไฟล์ .nvda-addon และออก GitHub Release อัตโนมัติเมื่อ push tag เวอร์ชัน เช่น v1.8.0
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check tag matches manifest version
+        run: |
+          version=$(grep -E '^version *=' addon/manifest.ini | sed -E 's/^version *= *//')
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match manifest version $version"
+            exit 1
+          fi
+
+      - name: Build add-on
+        run: |
+          pip install markdown
+          python build.py
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.nvda-addon
+          generate_release_notes: true

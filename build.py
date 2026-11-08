@@ -35,8 +35,25 @@ def main():
 				continue
 			if any(part in SKIP_DIRS for part in path.parts):
 				continue
-			zf.write(path, path.relative_to(SRC).as_posix())
+			arcname = path.relative_to(SRC).as_posix()
+			zf.write(path, arcname)
+			if path.name == "readme.md" and arcname.startswith("doc/"):
+				# คู่มือที่ NVDA เปิดจากปุ่ม Help ใน Add-on Store/Add-on Manager ต้องเป็น HTML
+				zf.writestr(arcname[:-3] + ".html", markdownToHtml(path))
 	print("สร้างไฟล์แล้ว: %s" % out.relative_to(ROOT))
+
+
+def markdownToHtml(path):
+	import markdown  # pip install markdown
+
+	text = path.read_text(encoding="utf-8")
+	lang = path.parent.name
+	title = text.splitlines()[0].lstrip("# ").strip() if text else "Web Rotor"
+	body = markdown.markdown(text, extensions=["tables"])
+	return (
+		'<!DOCTYPE html>\n<html lang="%s">\n<head>\n<meta charset="utf-8">\n'
+		"<title>%s</title>\n</head>\n<body>\n%s\n</body>\n</html>\n" % (lang, title, body)
+	)
 
 
 if __name__ == "__main__":
