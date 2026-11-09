@@ -6,7 +6,7 @@ you can type a letter to jump to an item, and category shortcuts work with both 
 keyboard layouts. The interface is available in English and Thai.
 
 Author: Peera Pilarit (peera@cfbt.or.th)
-Version: 1.8.0
+Version: 1.8.1
 
 ## Opening the rotor
 
@@ -30,8 +30,7 @@ Each category is a tab above the list.
 | Escape | Close the window without doing anything |
 
 Other NVDA commands keep working while the rotor is open (default). The settings include an
-experimental option to block them temporarily. It is **off by default** because it can conflict with
-some other add-ons and make NVDA stop responding.
+option to block them temporarily (**off by default**).
 
 ## Alt+letter shortcuts per category
 
@@ -79,8 +78,11 @@ Open the settings with **Control+Windows+Shift+U**, or from the NVDA menu (NVDA+
   used by Left/Right arrow in the rotor.
 - **Restore defaults**: go back to the 7 standard categories.
 - **Use NVDA+F7 to open Web Rotor instead of NVDA's standard Elements List** (off by default).
-- **Block other NVDA commands while Web Rotor is open** (experimental, off by default). If NVDA stops
-  responding with this option enabled, turn it off.
+- **Block other NVDA commands while Web Rotor is open** (off by default). NVDA commands that use the NVDA,
+  Control or Windows key (such as NVDA+F7 or NVDA+T) are disabled while the rotor is open. Keys used inside
+  Web Rotor (arrows, letters, Alt+letter, Tab, Enter, Escape) keep working, and nothing is blocked if you switch
+  to another window. (In 1.8.0 and earlier this option blocked every key, so NVDA went silent and the rotor
+  could not be closed; the settings dialog froze the same way. Fixed in 1.8.1, and the option no longer applies to the settings dialog.)
 
 All settings are saved and apply the next time you open the rotor.
 

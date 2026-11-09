@@ -166,8 +166,8 @@ UI_STRINGS = {
 		"languageThai": "Thai (\u0e44\u0e17\u0e22)",
 		"overrideElementsListCheckbox": "Use NVDA+F7 to open Web Rotor instead of NVDA's standard Elements List",
 		"blockOtherGesturesCheckbox": (
-			"Block other NVDA commands while Web Rotor is open (experimental \u2014 "
-			"may conflict with some other add-ons; off by default)"
+			"Block other NVDA commands while Web Rotor is open "
+			"(keys used inside Web Rotor keep working; off by default)"
 		),
 		"needAtLeastOneCategory": "Please select at least one category.",
 		"messageBoxTitle": "Web Rotor",
@@ -210,8 +210,8 @@ UI_STRINGS = {
 		"languageThai": "ไทย",
 		"overrideElementsListCheckbox": "ใช้ NVDA+F7 เปิดเว็บโรเตอร์ แทน Elements List มาตรฐานของ NVDA",
 		"blockOtherGesturesCheckbox": (
-			"บล็อกปุ่มลัดอื่นของ NVDA ขณะเว็บโรเตอร์เปิดอยู่ (ฟีเจอร์ทดลอง \u2014 "
-			"อาจชนกับส่วนเสริมอื่นบางตัว ปิดเป็นค่าเริ่มต้น)"
+			"บล็อกคำสั่งอื่นของ NVDA ขณะเว็บโรเตอร์เปิดอยู่ "
+			"(ปุ่มที่ใช้ในเว็บโรเตอร์ยังทำงานตามปกติ ปิดเป็นค่าเริ่มต้น)"
 		),
 		"needAtLeastOneCategory": "กรุณาเลือกอย่างน้อยหนึ่งหมวดหมู่",
 		"messageBoxTitle": "เว็บโรเตอร์",

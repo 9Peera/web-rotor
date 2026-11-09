@@ -64,6 +64,7 @@ class RotorDialog(wx.Dialog):
 		self._itemsCache = {}  # itemType -> รายการ QuickNavItem ทั้งหมดที่ดึงมาแล้ว
 		self._pages = []  # ข้อมูลของแต่ละแท็บ ตามลำดับเดียวกับ self.categories
 		self._gestureBlockActive = False
+		self._hwnd = None
 		self._typeAheadBuffer = ""
 		self._typeAheadTime = 0.0
 
@@ -210,17 +211,23 @@ class RotorDialog(wx.Dialog):
 		wx.CallAfter(self.Destroy)
 
 	def _blockOtherGestures(self):
-		"""บล็อกไม่ให้ปุ่มลัด/คำสั่งอื่นๆ ของ NVDA (นอกเหนือจากของเว็บโรเตอร์เอง) ทำงาน
-		ขณะที่กล่องโต้ตอบนี้เปิดอยู่ เพื่อป้องกันการกดพลาดไปโดนคำสั่งอื่นระหว่างใช้งานโรเตอร์
-		การนำทางภายในโรเตอร์เอง (ลูกศร, Enter, Esc, การพิมพ์ค้นหา) ใช้กลไกของ wx โดยตรง
-		ไม่ผ่านระบบ gesture ของ NVDA จึงไม่ได้รับผลกระทบจากการบล็อกนี้
+		"""บล็อกไม่ให้คำสั่งอื่นๆ ของ NVDA ทำงานขณะที่กล่องโต้ตอบนี้เปิดอยู่
+		เพื่อป้องกันการกดพลาดไปโดนคำสั่งอื่นระหว่างใช้งานโรเตอร์
 
-		ฟีเจอร์นี้เป็นทางเลือก (ปิดเป็นค่าเริ่มต้น) เนื่องจากอาจชนกับส่วนเสริมอื่นบางตัว
-		จนทำให้ NVDA ค้างได้ในบางเครื่อง เปิดใช้งานได้ที่หน้าตั้งค่าเว็บโรเตอร์
+		ข้อควรระวัง: ทุกปุ่มที่กด (รวมถึงลูกศร Enter Esc และตัวอักษร) ผ่าน decide_executeGesture
+		ของ NVDA ก่อนถึงหน้าต่างเสมอ และถ้าตอบ False NVDA จะกลืนปุ่มนั้นทิ้ง ไม่ส่งต่อให้หน้าต่าง
+		ดังนั้น _decideExecuteGesture ต้องปล่อยปุ่มที่โรเตอร์ใช้เองผ่านไปเสมอ
+		(เวอร์ชัน 1.8.0 และก่อนหน้าตอบ False ทุกปุ่ม ทำให้หน้าต่างรับปุ่มไม่ได้และ NVDA เงียบไป)
+
+		ฟีเจอร์นี้เป็นทางเลือก (ปิดเป็นค่าเริ่มต้น) เปิดใช้งานได้ที่หน้าตั้งค่าเว็บโรเตอร์
 		"""
 		if not cat.getBlockOtherGestures():
 			self._gestureBlockActive = False
 			return
+		try:
+			self._hwnd = self.GetHandle()
+		except Exception:
+			self._hwnd = None
 		try:
 			inputCore.decide_executeGesture.register(self._decideExecuteGesture)
 			self._gestureBlockActive = True
@@ -241,9 +248,40 @@ class RotorDialog(wx.Dialog):
 			self._gestureBlockActive = False
 
 	def _decideExecuteGesture(self, gesture):
-		# คืนค่า False เสมอ เพื่อยกเลิกการทำงานของปุ่มลัด/คำสั่งใดๆ ของ NVDA
-		# ขณะที่กล่องโต้ตอบเว็บโรเตอร์นี้เปิดอยู่
-		return False
+		"""ตัดสินว่าจะให้ปุ่มที่กดทำงานหรือไม่ (True = ปล่อยผ่าน, False = บล็อก)
+		ฟังก์ชันนี้อาจถูกเรียกจาก thread ของ keyboard hook จึงห้ามเรียก wx ในนี้
+		และถ้าเกิดข้อผิดพลาดใดๆ ต้องปล่อยผ่านเสมอ เพื่อไม่ให้แป้นพิมพ์ใช้งานไม่ได้
+		"""
+		try:
+			return not self._shouldBlockGesture(gesture)
+		except Exception:
+			return True
+
+	def _shouldBlockGesture(self, gesture):
+		# ผู้ใช้สลับไปหน้าต่างอื่นแล้ว ไม่บล็อกอะไรเลย
+		if self._hwnd and not self._isForeground():
+			return False
+		# ปุ่มที่ไม่ได้ผูกกับคำสั่งใดของ NVDA (ลูกศร Enter Esc Tab ตัวอักษร ฯลฯ) ต้องส่งถึงหน้าต่างเสมอ
+		if getattr(gesture, "script", None) is None:
+			return False
+		# ปุ่มที่โรเตอร์ใช้เอง แม้ส่วนเสริมอื่นจะผูกคำสั่งไว้ก็ต้องปล่อยผ่าน:
+		# ปุ่มที่ไม่มี NVDA/Control/Windows (ลูกศร ตัวอักษร Shift+Tab Alt+ตัวอักษร ฯลฯ) และ Ctrl+Tab
+		modifiers = [str(name).lower() for name in (getattr(gesture, "modifierNames", None) or [])]
+		heavy = [m for m in modifiers if "nvda" in m or "control" in m or "windows" in m]
+		if not heavy:
+			return False
+		mainKey = str(getattr(gesture, "mainKeyName", "") or "").lower()
+		if mainKey == "tab" and all("control" in m for m in heavy):
+			return False
+		# คำสั่งของ NVDA (เช่น NVDA+F7, Control+Windows+U, NVDA+ตัวอักษร) ถูกบล็อกระหว่างที่โรเตอร์เปิดอยู่
+		return True
+
+	def _isForeground(self):
+		try:
+			import ctypes
+			return ctypes.windll.user32.GetForegroundWindow() == self._hwnd
+		except Exception:
+			return True
 
 	def _onListKeyDown(self, evt):
 		code = evt.GetKeyCode()

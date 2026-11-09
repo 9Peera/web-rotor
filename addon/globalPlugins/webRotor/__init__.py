@@ -56,10 +56,36 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			return None
 		return treeInterceptor
 
+	def _refocusOpenRotor(self):
+		"""ถ้าหน้าต่างโรเตอร์เปิดอยู่แล้ว ให้ย้ายโฟกัสกลับไปที่รายการ (NVDA จะอ่านหมวดและรายการปัจจุบัน)
+		แทนการเปิดซ้อนหรือเงียบไปเฉยๆ เมื่อผู้ใช้กด Control+Windows+U หรือ NVDA+F7 ซ้ำขณะโรเตอร์เปิดอยู่
+		"""
+		dlg = _activeDialog
+		if dlg is None:
+			return False
+		try:
+			if not dlg or dlg._closeHandled:
+				return False
+		except Exception:
+			return False
+		log.info("WebRotor: โรเตอร์เปิดอยู่แล้ว ย้ายโฟกัสกลับไปที่รายการ")
+
+		def refocus():
+			try:
+				dlg.Raise()
+				dlg._focusCurrentList()
+			except Exception:
+				log.debugWarning("Web Rotor: ย้ายโฟกัสกลับไปที่โรเตอร์ไม่สำเร็จ", exc_info=True)
+
+		wx.CallAfter(refocus)
+		return True
+
 	def script_openWebRotor(self, gesture):
 		global _activeDialog
 
 		log.info("WebRotor: ผู้ใช้เรียกเปิดเว็บโรเตอร์ (script_openWebRotor)")
+		if self._refocusOpenRotor():
+			return
 		treeInterceptor = self._getBrowseModeTreeInterceptor()
 		if treeInterceptor is None:
 			ui.message(strings.tr("notBrowseMode"))
@@ -113,6 +139,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		ถ้าไม่ได้เปิดตัวเลือกนี้ไว้ จะเรียกกล่องโต้ตอบ Elements List มาตรฐานของ NVDA ตามปกติ
 		เพื่อไม่ให้พฤติกรรมเดิมของ NVDA เปลี่ยนไปโดยที่ผู้ใช้ไม่ได้ตั้งใจ
 		"""
+		if self._refocusOpenRotor():
+			return
 		treeInterceptor = self._getBrowseModeTreeInterceptor()
 
 		if categories.getOverrideElementsList() and treeInterceptor is not None:

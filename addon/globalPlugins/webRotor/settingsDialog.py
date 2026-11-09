@@ -5,8 +5,13 @@
 import wx
 import gui
 import ui
-import inputCore
 from logHandler import log
+
+try:
+	# รายการช่องติ๊กของ NVDA เองที่แก้ให้โปรแกรมอ่านหน้าจออ่านสถานะ "เลือก/ไม่เลือก" ได้
+	from gui.nvdaControls import CustomCheckListBox as _CheckListBox
+except Exception:
+	_CheckListBox = wx.CheckListBox
 
 from . import categories as cat
 from . import strings
@@ -32,12 +37,10 @@ class RotorSettingsDialog(wx.Dialog):
 		enabled = cat.getEnabledCategories()
 		# แสดงหมวดที่เปิดใช้งานอยู่ก่อน (ตามลำดับที่ตั้งไว้) แล้วตามด้วยหมวดที่ยังไม่เปิด
 		self._itemTypes = list(enabled) + [i for i in cat.MASTER_ORDER if i not in enabled]
-		self._gestureBlockActive = False
+		# หมายเหตุ: หน้าตั้งค่านี้ไม่บล็อกคำสั่งอื่นของ NVDA (ตัวเลือกบล็อกมีผลเฉพาะหน้าต่างโรเตอร์)
+		# เวอร์ชัน 1.8.1 และก่อนหน้าบล็อกทุกปุ่มในหน้านี้ด้วย ทำให้ NVDA เงียบและใช้งานหน้าตั้งค่าไม่ได้
 
 		self._buildUI(enabled)
-		self.Bind(wx.EVT_CLOSE, self._onClose)
-		self._blockOtherGestures()
-		self._watchdogTimer = wx.CallLater(5 * 60 * 1000, self._unblockOtherGestures)
 
 	def _buildUI(self, enabled):
 		mainSizer = wx.BoxSizer(wx.VERTICAL)
@@ -63,7 +66,7 @@ class RotorSettingsDialog(wx.Dialog):
 		listSizer = wx.BoxSizer(wx.VERTICAL)
 		listSizer.Add(listLabel, 0, wx.BOTTOM, 4)
 
-		self.checkList = wx.CheckListBox(
+		self.checkList = _CheckListBox(
 			self,
 			choices=[cat.getLabel(i) for i in self._itemTypes],
 		)
@@ -112,37 +115,6 @@ class RotorSettingsDialog(wx.Dialog):
 			self.checkList.SetSelection(0)
 		self.checkList.SetFocus()
 
-	def _onClose(self, evt):
-		if getattr(self, "_watchdogTimer", None) is not None and self._watchdogTimer.IsRunning():
-			self._watchdogTimer.Stop()
-		self._unblockOtherGestures()
-		evt.Skip()
-
-	def _blockOtherGestures(self):
-		"""บล็อกปุ่มลัด/คำสั่งอื่นๆ ของ NVDA ชั่วคราวขณะที่หน้าตั้งค่านี้เปิดอยู่ (ถ้าผู้ใช้เปิดใช้งานฟีเจอร์นี้ไว้)
-		(เหมือนกับที่ทำในกล่องโต้ตอบเว็บโรเตอร์หลัก)
-		"""
-		if not cat.getBlockOtherGestures():
-			self._gestureBlockActive = False
-			return
-		try:
-			inputCore.decide_executeGesture.register(self._decideExecuteGesture)
-			self._gestureBlockActive = True
-		except Exception:
-			log.debugWarning("Web Rotor: ไม่สามารถบล็อกปุ่มลัดอื่นของ NVDA ได้", exc_info=True)
-			self._gestureBlockActive = False
-
-	def _unblockOtherGestures(self):
-		if self._gestureBlockActive:
-			try:
-				inputCore.decide_executeGesture.unregister(self._decideExecuteGesture)
-			except Exception:
-				pass
-			self._gestureBlockActive = False
-
-	def _decideExecuteGesture(self, gesture):
-		return False
-
 	def _move(self, step):
 		sel = self.checkList.GetSelection()
 		if sel == wx.NOT_FOUND:
@@ -175,9 +147,6 @@ class RotorSettingsDialog(wx.Dialog):
 		ui.message(strings.tr("restoredDefaults"))
 
 	def _onCancel(self, evt):
-		if getattr(self, "_watchdogTimer", None) is not None and self._watchdogTimer.IsRunning():
-			self._watchdogTimer.Stop()
-		self._unblockOtherGestures()
 		evt.Skip()
 
 	def _onOk(self, evt):
@@ -198,7 +167,4 @@ class RotorSettingsDialog(wx.Dialog):
 		cat.setOverrideElementsList(self.overrideCheckbox.GetValue())
 		cat.setBlockOtherGestures(self.blockGesturesCheckbox.GetValue())
 		strings.setLang("th" if self.languageRadio.GetSelection() == 1 else "en")
-		if getattr(self, "_watchdogTimer", None) is not None and self._watchdogTimer.IsRunning():
-			self._watchdogTimer.Stop()
-		self._unblockOtherGestures()
 		evt.Skip()
