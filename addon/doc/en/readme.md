@@ -82,7 +82,7 @@ Open the settings with **Control+Windows+Shift+U**, or from the NVDA menu (NVDA+
   Control or Windows key (such as NVDA+F7 or NVDA+T) are disabled while the rotor is open. Keys used inside
   Web Rotor (arrows, letters, Alt+letter, Tab, Enter, Escape) keep working, and nothing is blocked if you switch
   to another window. (In 1.8.0 and earlier this option blocked every key, so NVDA went silent and the rotor
-  could not be closed. Fixed in 1.8.1.)
+  could not be closed; the settings dialog froze the same way. Fixed in 1.8.1, and the option no longer applies to the settings dialog.)
 
 All settings are saved and apply the next time you open the rotor.
 
