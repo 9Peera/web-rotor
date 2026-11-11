@@ -59,6 +59,8 @@ def registerConfig():
 		# ถ้าเป็นจริง: ปุ่มลัด/คำสั่งอื่นๆ ของ NVDA จะถูกปิดใช้งานชั่วคราวขณะเว็บโรเตอร์เปิดอยู่
 		# ค่าเริ่มต้นเป็นเท็จ (ปิด) เนื่องจากอาจชนกับส่วนเสริมอื่นบางตัวจนทำให้ NVDA ค้างได้ในบางเครื่อง
 		"blockOtherGestures": "boolean(default=false)",
+		# ชุดปุ่มลัดที่ชนกับส่วนเสริมอื่นที่เคยแจ้งผู้ใช้แล้ว (จะแจ้งตอนเปิด NVDA เฉพาะเมื่อชุดนี้เปลี่ยน)
+		"notifiedConflicts": "string(default='')",
 	}
 	strings.registerConfigKey(confspec)  # เพิ่มคีย์ "language" (ค่าเริ่มต้น = อังกฤษ)
 	config.conf.spec[CONFIG_SECTION] = confspec
@@ -103,3 +105,11 @@ def getBlockOtherGestures():
 
 def setBlockOtherGestures(value):
 	config.conf[CONFIG_SECTION]["blockOtherGestures"] = bool(value)
+
+
+def getNotifiedConflicts():
+	return str(config.conf[CONFIG_SECTION]["notifiedConflicts"] or "")
+
+
+def setNotifiedConflicts(value):
+	config.conf[CONFIG_SECTION]["notifiedConflicts"] = str(value or "")

@@ -14,6 +14,7 @@ except Exception:
 	_CheckListBox = wx.CheckListBox
 
 from . import categories as cat
+from . import conflicts
 from . import strings
 
 
@@ -27,7 +28,10 @@ class RotorSettingsDialog(wx.Dialog):
 	การเปลี่ยนภาษาจะมีผลตั้งแต่ครั้งถัดไปที่เปิดเว็บโรเตอร์หรือหน้าตั้งค่านี้
 	"""
 
-	def __init__(self, parent):
+	def __init__(self, parent, plugin=None):
+		self._plugin = plugin
+		# ปุ่มลัดที่ชนกับส่วนเสริมอื่น (ตรวจก่อนสร้างหน้าจอ เพื่อแสดงส่วนแก้ไขเฉพาะเมื่อมีปัญหา)
+		self._conflicts = conflicts.findConflicts(plugin) if plugin is not None else []
 		super().__init__(
 			parent,
 			title=strings.tr("settingsTitle"),
@@ -38,7 +42,7 @@ class RotorSettingsDialog(wx.Dialog):
 		# แสดงหมวดที่เปิดใช้งานอยู่ก่อน (ตามลำดับที่ตั้งไว้) แล้วตามด้วยหมวดที่ยังไม่เปิด
 		self._itemTypes = list(enabled) + [i for i in cat.MASTER_ORDER if i not in enabled]
 		# หมายเหตุ: หน้าตั้งค่านี้ไม่บล็อกคำสั่งอื่นของ NVDA (ตัวเลือกบล็อกมีผลเฉพาะหน้าต่างโรเตอร์)
-		# เวอร์ชัน 1.8.1 และก่อนหน้าบล็อกทุกปุ่มในหน้านี้ด้วย ทำให้ NVDA เงียบและใช้งานหน้าตั้งค่าไม่ได้
+		# เวอร์ชัน 1.8.0 และก่อนหน้าบล็อกทุกปุ่มในหน้านี้ด้วย ทำให้ NVDA เงียบและใช้งานหน้าตั้งค่าไม่ได้
 
 		self._buildUI(enabled)
 
@@ -96,6 +100,25 @@ class RotorSettingsDialog(wx.Dialog):
 		self.blockGesturesCheckbox.SetValue(cat.getBlockOtherGestures())
 		mainSizer.Add(self.blockGesturesCheckbox, 0, wx.ALL, 8)
 
+		# --- ปุ่มลัดที่ชนกับส่วนเสริมอื่น (แสดงเฉพาะเมื่อพบ) ---
+		# ใช้ช่องข้อความแบบอ่านอย่างเดียว เพื่อให้กด Tab ไปถึงและ NVDA อ่านรายละเอียดได้
+		self.conflictsLabel = None
+		self.conflictsText = None
+		self.fixConflictsBtn = None
+		if self._conflicts:
+			self.conflictsLabel = wx.StaticText(self, label=strings.tr("conflictsLabel"))
+			mainSizer.Add(self.conflictsLabel, 0, wx.LEFT | wx.RIGHT, 8)
+			self.conflictsText = wx.TextCtrl(
+				self,
+				value="\n".join(self._conflictLines()),
+				style=wx.TE_MULTILINE | wx.TE_READONLY,
+				size=(420, 60),
+			)
+			mainSizer.Add(self.conflictsText, 0, wx.LEFT | wx.RIGHT | wx.EXPAND, 8)
+			self.fixConflictsBtn = wx.Button(self, label=strings.tr("fixConflictsBtn"))
+			mainSizer.Add(self.fixConflictsBtn, 0, wx.ALL, 8)
+			self.fixConflictsBtn.Bind(wx.EVT_BUTTON, self._onFixConflicts)
+
 		line = wx.StaticLine(self)
 		mainSizer.Add(line, 0, wx.EXPAND | wx.LEFT | wx.RIGHT, 8)
 
@@ -145,6 +168,35 @@ class RotorSettingsDialog(wx.Dialog):
 			self.checkList.SetSelection(0)
 		self.checkList.SetFocus()
 		ui.message(strings.tr("restoredDefaults"))
+
+	def _conflictLines(self):
+		return [
+			strings.tr("conflictLine", shortcut=c["gestureText"], addon=c["addon"], command=c["command"])
+			for c in self._conflicts
+		]
+
+	def _onFixConflicts(self, evt):
+		"""ถอดปุ่มลัดที่ชนกันออกจากส่วนเสริมอื่น หลังจากผู้ใช้ยืนยันแล้วเท่านั้น"""
+		answer = gui.messageBox(
+			strings.tr("fixConflictsConfirm", lines="\n".join(self._conflictLines())),
+			strings.tr("messageBoxTitle"),
+			wx.YES_NO | wx.ICON_QUESTION,
+			self,
+		)
+		if answer != wx.YES:
+			return
+		if not conflicts.fixConflicts(self._conflicts):
+			ui.message(strings.tr("conflictsFixFailed"))
+			return
+		# ย้ายโฟกัสออกก่อนซ่อนปุ่ม ไม่ให้โฟกัสหายไปกับปุ่มที่ถูกซ่อน
+		self.checkList.SetFocus()
+		for ctrl in (self.conflictsLabel, self.conflictsText, self.fixConflictsBtn):
+			if ctrl is not None:
+				ctrl.Hide()
+		self._conflicts = []
+		self.Layout()
+		self.Fit()
+		ui.message(strings.tr("conflictsFixed"))
 
 	def _onCancel(self, evt):
 		evt.Skip()

@@ -11,6 +11,7 @@ import browseMode
 from logHandler import log
 
 from . import categories
+from . import conflicts
 from . import strings
 from .rotorDialog import RotorDialog
 from .settingsDialog import RotorSettingsDialog
@@ -41,7 +42,50 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			# ถ้าเพิ่มเมนูไม่สำเร็จด้วยเหตุผลใดก็ตาม ผู้ใช้ยังเรียกหน้าตั้งค่าผ่านปุ่มลัดได้ตามปกติ
 			self._settingsMenuItem = None
 
+		# ตรวจปุ่มลัดที่ชนกับส่วนเสริมอื่น หลังจาก NVDA โหลดส่วนเสริมครบทุกตัวแล้ว
+		# (wx.CallAfter จะทำงานเมื่อ main loop เริ่ม จากนั้นรออีกเล็กน้อยให้ NVDA พูดข้อความเริ่มต้นเสร็จก่อน)
+		self._conflictTimer = None
+		wx.CallAfter(self._scheduleConflictCheck)
+
+	def _scheduleConflictCheck(self):
+		try:
+			self._conflictTimer = wx.CallLater(8000, self._checkConflictsAtStartup)
+		except Exception:
+			log.debugWarning("Web Rotor: ตั้งเวลาตรวจปุ่มลัดที่ชนกันไม่สำเร็จ", exc_info=True)
+
+	def _checkConflictsAtStartup(self):
+		"""แจ้งผู้ใช้หนึ่งครั้งเมื่อพบส่วนเสริมอื่นใช้ปุ่มลัดเดียวกับเว็บโรเตอร์
+		จะไม่แจ้งซ้ำทุกครั้งที่เปิด NVDA ถ้าชุดปุ่มที่ชนกันยังเหมือนเดิม และไม่แก้อะไรเองโดยผู้ใช้ไม่ได้สั่ง
+		"""
+		self._conflictTimer = None
+		try:
+			found = conflicts.findConflicts(self)
+			sig = conflicts.signature(found)
+			if found:
+				log.warning("Web Rotor: ปุ่มลัดชนกับส่วนเสริมอื่น: %s" % sig)
+			if sig == categories.getNotifiedConflicts():
+				return
+			categories.setNotifiedConflicts(sig)
+			if not found:
+				return
+			keys = []
+			addons = []
+			for c in found:
+				if c["gestureText"] not in keys:
+					keys.append(c["gestureText"])
+				if c["addon"] not in addons:
+					addons.append(c["addon"])
+			ui.message(strings.tr("conflictStartup", keys=", ".join(keys), addons=", ".join(addons)))
+		except Exception:
+			log.debugWarning("Web Rotor: ตรวจปุ่มลัดที่ชนกันไม่สำเร็จ", exc_info=True)
+
 	def terminate(self, *args, **kwargs):
+		if self._conflictTimer is not None:
+			try:
+				self._conflictTimer.Stop()
+			except Exception:
+				pass
+			self._conflictTimer = None
 		if self._settingsMenuItem is not None:
 			try:
 				self._prefsMenu.Remove(self._settingsMenuItem)
@@ -111,7 +155,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				_activeDialog = None
 				gui.mainFrame.postPopup()
 
-			dlg = RotorDialog(gui.mainFrame, treeInterceptor, onClosedCallback=onClosed)
+			try:
+				dlg = RotorDialog(gui.mainFrame, treeInterceptor, onClosedCallback=onClosed)
+			except Exception:
+				# สร้างหน้าต่างไม่สำเร็จ onClosed จะไม่ถูกเรียก จึงต้องเรียก postPopup ที่นี่ให้สมดุล (กฎข้อ 1)
+				log.error("Web Rotor: เปิดหน้าต่างโรเตอร์ไม่สำเร็จ", exc_info=True)
+				_activeDialog = None
+				gui.mainFrame.postPopup()
+				return
 			_activeDialog = dlg
 			dlg.Show()
 
@@ -123,11 +174,23 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	def script_openWebRotorSettings(self, gesture):
 		def run():
+			# prePopup/postPopup ต้องเป็นคู่เสมอ แม้สร้างหน้าตั้งค่าไม่สำเร็จ (กฎข้อ 1)
 			gui.mainFrame.prePopup()
-			dlg = RotorSettingsDialog(gui.mainFrame)
-			dlg.ShowModal()
-			dlg.Destroy()
-			gui.mainFrame.postPopup()
+			try:
+				try:
+					dlg = RotorSettingsDialog(gui.mainFrame, plugin=self)
+				except Exception:
+					# ถ้าส่วนตรวจปุ่มลัดที่ชนกันมีปัญหา ให้เปิดหน้าตั้งค่าแบบไม่มีส่วนนั้นแทน ผู้ใช้จะได้ไม่ติด
+					log.error("Web Rotor: สร้างหน้าตั้งค่าไม่สำเร็จ ลองเปิดแบบไม่ตรวจปุ่มลัดที่ชนกัน", exc_info=True)
+					dlg = RotorSettingsDialog(gui.mainFrame)
+				try:
+					dlg.ShowModal()
+				finally:
+					dlg.Destroy()
+			except Exception:
+				log.error("Web Rotor: เปิดหน้าตั้งค่าไม่สำเร็จ", exc_info=True)
+			finally:
+				gui.mainFrame.postPopup()
 
 		wx.CallAfter(run)
 

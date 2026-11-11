@@ -6,7 +6,7 @@ you can type a letter to jump to an item, and category shortcuts work with both 
 keyboard layouts. The interface is available in English and Thai.
 
 Author: Peera Pilarit (peera@cfbt.or.th)
-Version: 1.8.1
+Version: 1.8.2
 
 ## Opening the rotor
 
@@ -85,6 +85,20 @@ Open the settings with **Control+Windows+Shift+U**, or from the NVDA menu (NVDA+
   could not be closed; the settings dialog froze the same way. Fixed in 1.8.1, and the option no longer applies to the settings dialog.)
 
 All settings are saved and apply the next time you open the rotor.
+
+## If Control+Windows+U does not open Web Rotor (shortcut conflicts)
+
+Some add-ons use the same keys as Web Rotor. For example, freeAudio 2026.25 and later uses Control+Windows+U to open
+its Jukebox. When two add-ons share a key, NVDA may run either one, so Web Rotor may not open.
+
+Since 1.8.2 Web Rotor checks for this:
+
+- After NVDA starts, if a conflict is found, Web Rotor announces once which key is shared and with which add-on.
+- The settings dialog (Control+Windows+Shift+U) then shows **Shortcut conflicts with other add-ons** (Alt+S) with
+  the details, and a **Give Web Rotor priority for these shortcuts** button (Alt+P). After you confirm, Web Rotor
+  removes those keys from the other add-on in NVDA's Input gestures. It works immediately, without restarting NVDA.
+  The other add-on's command is not removed; you can give it another key in NVDA menu > Preferences > Input gestures.
+- Web Rotor never changes another add-on's keys unless you press this button.
 
 ## Technical notes
 
