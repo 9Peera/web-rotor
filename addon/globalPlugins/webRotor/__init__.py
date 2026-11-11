@@ -155,7 +155,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				_activeDialog = None
 				gui.mainFrame.postPopup()
 
-			dlg = RotorDialog(gui.mainFrame, treeInterceptor, onClosedCallback=onClosed)
+			try:
+				dlg = RotorDialog(gui.mainFrame, treeInterceptor, onClosedCallback=onClosed)
+			except Exception:
+				# สร้างหน้าต่างไม่สำเร็จ onClosed จะไม่ถูกเรียก จึงต้องเรียก postPopup ที่นี่ให้สมดุล (กฎข้อ 1)
+				log.error("Web Rotor: เปิดหน้าต่างโรเตอร์ไม่สำเร็จ", exc_info=True)
+				_activeDialog = None
+				gui.mainFrame.postPopup()
+				return
 			_activeDialog = dlg
 			dlg.Show()
 
@@ -167,11 +174,23 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	def script_openWebRotorSettings(self, gesture):
 		def run():
+			# prePopup/postPopup ต้องเป็นคู่เสมอ แม้สร้างหน้าตั้งค่าไม่สำเร็จ (กฎข้อ 1)
 			gui.mainFrame.prePopup()
-			dlg = RotorSettingsDialog(gui.mainFrame, plugin=self)
-			dlg.ShowModal()
-			dlg.Destroy()
-			gui.mainFrame.postPopup()
+			try:
+				try:
+					dlg = RotorSettingsDialog(gui.mainFrame, plugin=self)
+				except Exception:
+					# ถ้าส่วนตรวจปุ่มลัดที่ชนกันมีปัญหา ให้เปิดหน้าตั้งค่าแบบไม่มีส่วนนั้นแทน ผู้ใช้จะได้ไม่ติด
+					log.error("Web Rotor: สร้างหน้าตั้งค่าไม่สำเร็จ ลองเปิดแบบไม่ตรวจปุ่มลัดที่ชนกัน", exc_info=True)
+					dlg = RotorSettingsDialog(gui.mainFrame)
+				try:
+					dlg.ShowModal()
+				finally:
+					dlg.Destroy()
+			except Exception:
+				log.error("Web Rotor: เปิดหน้าตั้งค่าไม่สำเร็จ", exc_info=True)
+			finally:
+				gui.mainFrame.postPopup()
 
 		wx.CallAfter(run)
 

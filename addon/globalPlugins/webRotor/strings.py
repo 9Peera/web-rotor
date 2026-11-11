@@ -178,7 +178,7 @@ UI_STRINGS = {
 			"To fix this, open Web Rotor settings with Control+Windows+Shift+U or from the NVDA Preferences menu."
 		),
 		"conflictsLabel": "Shortcut conflicts with other add-ons (&S):",
-		"conflictLine": "{key} is also used by {addon}: {command}",
+		"conflictLine": "{shortcut} is also used by {addon}: {command}",
 		"fixConflictsBtn": "Give Web Rotor &priority for these shortcuts",
 		"fixConflictsConfirm": (
 			"Web Rotor will remove these shortcuts from the other add-ons:\n\n{lines}\n\n"
@@ -239,7 +239,7 @@ UI_STRINGS = {
 			"แก้ได้ในหน้าตั้งค่าเว็บโรเตอร์ กด Control+Windows+Shift+U หรือเปิดจากเมนูตั้งค่าของ NVDA"
 		),
 		"conflictsLabel": "ปุ่มลัดที่ชนกับส่วนเสริมอื่น (&ช):",
-		"conflictLine": "ปุ่ม {key} ถูกใช้โดย {addon}: {command}",
+		"conflictLine": "ปุ่ม {shortcut} ถูกใช้โดย {addon}: {command}",
 		"fixConflictsBtn": "ให้เว็บโรเตอร์ใช้ปุ่มลัดเหล่านี้ (&ป)",
 		"fixConflictsConfirm": (
 			"เว็บโรเตอร์จะถอดปุ่มลัดต่อไปนี้ออกจากส่วนเสริมอื่น:\n\n{lines}\n\n"

@@ -171,7 +171,7 @@ class RotorSettingsDialog(wx.Dialog):
 
 	def _conflictLines(self):
 		return [
-			strings.tr("conflictLine", key=c["gestureText"], addon=c["addon"], command=c["command"])
+			strings.tr("conflictLine", shortcut=c["gestureText"], addon=c["addon"], command=c["command"])
 			for c in self._conflicts
 		]
 
