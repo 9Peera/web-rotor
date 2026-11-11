@@ -171,6 +171,24 @@ UI_STRINGS = {
 		),
 		"needAtLeastOneCategory": "Please select at least one category.",
 		"messageBoxTitle": "Web Rotor",
+
+		# --- Shortcut conflicts with other add-ons ---
+		"conflictStartup": (
+			"Web Rotor: {keys} is also used by {addons}, so Web Rotor may not open. "
+			"To fix this, open Web Rotor settings with Control+Windows+Shift+U or from the NVDA Preferences menu."
+		),
+		"conflictsLabel": "Shortcut conflicts with other add-ons (&S):",
+		"conflictLine": "{key} is also used by {addon}: {command}",
+		"fixConflictsBtn": "Give Web Rotor &priority for these shortcuts",
+		"fixConflictsConfirm": (
+			"Web Rotor will remove these shortcuts from the other add-ons:\n\n{lines}\n\n"
+			"Their commands are not removed. You can give them other keys in NVDA's Input gestures "
+			"(NVDA menu > Preferences > Input gestures). Continue?"
+		),
+		"conflictsFixed": "Done. Web Rotor now has priority for its shortcuts.",
+		"conflictsFixFailed": (
+			"Could not change the shortcuts. Please remove them from the other add-on in NVDA's Input gestures."
+		),
 	},
 	"th": {
 		"prefsMenuItem": "ตั้งค่าเว็บโรเตอร์... (Web Rotor)",
@@ -215,5 +233,20 @@ UI_STRINGS = {
 		),
 		"needAtLeastOneCategory": "กรุณาเลือกอย่างน้อยหนึ่งหมวดหมู่",
 		"messageBoxTitle": "เว็บโรเตอร์",
+
+		"conflictStartup": (
+			"เว็บโรเตอร์: ปุ่ม {keys} ถูกใช้โดย {addons} ด้วย จึงอาจเปิดเว็บโรเตอร์ไม่ขึ้น "
+			"แก้ได้ในหน้าตั้งค่าเว็บโรเตอร์ กด Control+Windows+Shift+U หรือเปิดจากเมนูตั้งค่าของ NVDA"
+		),
+		"conflictsLabel": "ปุ่มลัดที่ชนกับส่วนเสริมอื่น (&ช):",
+		"conflictLine": "ปุ่ม {key} ถูกใช้โดย {addon}: {command}",
+		"fixConflictsBtn": "ให้เว็บโรเตอร์ใช้ปุ่มลัดเหล่านี้ (&ป)",
+		"fixConflictsConfirm": (
+			"เว็บโรเตอร์จะถอดปุ่มลัดต่อไปนี้ออกจากส่วนเสริมอื่น:\n\n{lines}\n\n"
+			"คำสั่งของส่วนเสริมนั้นยังอยู่ กำหนดปุ่มใหม่ให้ได้ที่ Input gestures ของ NVDA "
+			"(เมนู NVDA > ตั้งค่า > คำสั่งการป้อนข้อมูล) ต้องการทำต่อหรือไม่"
+		),
+		"conflictsFixed": "เรียบร้อย เว็บโรเตอร์ใช้ปุ่มลัดของตัวเองได้แล้ว",
+		"conflictsFixFailed": "เปลี่ยนปุ่มลัดไม่สำเร็จ กรุณาถอดปุ่มนั้นออกจากส่วนเสริมอื่นใน Input gestures ของ NVDA",
 	},
 }

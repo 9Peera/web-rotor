@@ -12,7 +12,8 @@ addon/                       # ทุกอย่างในนี้จะถ�
   globalPlugins/webRotor/
     __init__.py              # GlobalPlugin: ปุ่มลัด, เมนู Preferences, เปิดหน้าต่าง
     rotorDialog.py           # หน้าต่างโรเตอร์ (แท็บต่อหมวด, รายการ, พิมพ์กระโดด, Alt+ตัวอักษรไทย/อังกฤษ)
-    settingsDialog.py        # หน้าตั้งค่า (ภาษา, เลือก/จัดลำดับหมวด, ตัวเลือกต่างๆ)
+    settingsDialog.py        # หน้าตั้งค่า (ภาษา, เลือก/จัดลำดับหมวด, ตัวเลือกต่างๆ, แก้ปุ่มลัดที่ชนกัน)
+    conflicts.py             # ตรวจส่วนเสริมอื่นที่ใช้ปุ่มลัดเดียวกัน และถอดปุ่มออกเมื่อผู้ใช้ยืนยัน (ผ่าน userGestureMap)
     categories.py            # MASTER_ORDER 23 หมวด, DEFAULT_ENABLED, config section "webRotor"
     strings.py               # ข้อความ 2 ภาษา (en/th) ผ่าน tr(key); ค่าเริ่มต้นภาษาอังกฤษ
   locale/th/manifest.ini     # summary/description/changelog ภาษาไทย (manifest หลักเป็นภาษาอังกฤษ)
@@ -44,6 +45,8 @@ build.py                     # python build.py → dist/webRotor-<version>.nvda-
    และปุ่มที่หน้าต่างใช้ต้องปล่อยผ่านเสมอ ห้ามเรียก wx ใน decider และถ้าเกิด exception ต้องปล่อยผ่าน
 8. รายการที่มีช่องติ๊ก ใช้ `gui.nvdaControls.CustomCheckListBox` ไม่ใช้ `wx.CheckListBox` ตรงๆ
    เพราะ NVDA อ่านสถานะเลือก/ไม่เลือกของ `wx.CheckListBox` ไม่ได้
+9. ห้ามแก้ปุ่มลัดของส่วนเสริมอื่นเองอัตโนมัติ ตรวจแล้วแจ้งได้ แต่จะถอดปุ่มต้องให้ผู้ใช้กดยืนยันในหน้าตั้งค่าเท่านั้น
+   (เคยเกิดกับ freeAudio 2026.25 ที่ใช้ Control+Windows+U ทำให้เว็บโรเตอร์เปิดไม่ขึ้น แก้ใน 1.8.2)
 
 ## การออกเวอร์ชัน
 
